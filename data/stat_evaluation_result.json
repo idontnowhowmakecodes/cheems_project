@@ -1,5 +1,5 @@
 {
-  "session_id": "a2a027b7-f3ea-4264-b0d2-002abb921358",
+  "session_id": "05e561bd-003e-4ba3-b9ee-47a010215a2d",
   "patient": {
     "patient_id": "P-2026-001",
     "full_name": "Mateo Morales",
@@ -11,8 +11,8 @@
     "notes": "",
     "created_at": "2026-08-12"
   },
-  "started_at": "2026-08-12T20:18:23.066922+00:00",
-  "ended_at": "2026-08-12T20:18:23.077758+00:00",
+  "started_at": "2026-08-12T21:16:32.714937+00:00",
+  "ended_at": "2026-08-12T21:16:32.732278+00:00",
   "is_completed": true,
   "items_evaluated": 12,
   "items_total": 12,
