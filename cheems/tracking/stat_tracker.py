@@ -28,7 +28,7 @@ class STATMediaPipeTracker:
 
         if model_path and model_path.exists():
             try:
-                from cheems_tracker.tracking.gesture_tracker import GestureTracker
+                from cheems.tracking.gesture_tracker import GestureTracker
                 self.tracker_instance = GestureTracker(model_path)
                 self.is_active = True
             except Exception as err:

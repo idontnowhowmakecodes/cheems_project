@@ -1,1 +1,1 @@
-"""Módulo de Tracking MediaPipe adaptado para el Test STAT en CHEEMS."""
+"""Adaptadores de MediaPipe para tareas de tracking."""

@@ -23,22 +23,34 @@ class TestSTATModule(unittest.TestCase):
     """Suite de pruebas unitarias para el módulo STAT."""
 
     def test_patient_age_validation(self):
-        """Verifica que la edad del paciente esté restringida a 12-36 meses."""
+        """Verifica la validación dinámica de edad del paciente."""
         p1 = Patient(patient_id="1", full_name="Niño Válido 12m", age_months=12)
         p2 = Patient(patient_id="2", full_name="Niño Válido 36m", age_months=36)
         self.assertEqual(p1.age_years, 1.0)
         self.assertEqual(p2.age_years, 3.0)
 
+        # Edad base
         with self.assertRaises(ValueError):
-            Patient(patient_id="3", full_name="Bebé Muy Joven", age_months=6)
+            Patient(patient_id="3", full_name="Neonato", age_months=0)
 
-        with self.assertRaises(ValueError):
-            Patient(patient_id="4", full_name="Niño Mayor", age_months=48)
+        # Validación STAT
+        p_young = Patient(patient_id="4", full_name="Bebé 6m", age_months=6)
+        ok_stat, _ = p_young.validate_for_test("stat")
+        self.assertFalse(ok_stat)
 
-        ok, msg = validate_patient_age(24)
-        self.assertTrue(ok)
-        ok_low, _ = validate_patient_age(5)
-        self.assertFalse(ok_low)
+        p_old = Patient(patient_id="5", full_name="Niño 48m", age_months=48)
+        ok_stat_old, _ = p_old.validate_for_test("stat")
+        self.assertFalse(ok_stat_old)
+
+        ok_stat_valid, _ = p1.validate_for_test("stat")
+        self.assertTrue(ok_stat_valid)
+
+        # Validación ADOS-2
+        ok_ados_young, _ = p_young.validate_for_test("ados2")
+        self.assertFalse(ok_ados_young)
+
+        ok_ados_old, _ = p_old.validate_for_test("ados2")
+        self.assertTrue(ok_ados_old)
 
     def test_stat_items_count_and_domains(self):
         """Verifica que existan exactamente 12 ítems distribuidos en los 4 dominios del STAT."""

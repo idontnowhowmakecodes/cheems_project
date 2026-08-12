@@ -19,12 +19,17 @@ class Patient:
     created_at: date = field(default_factory=date.today)
 
     def __post_init__(self) -> None:
-        """Valida que la edad esté dentro del rango permitido para el examen STAT (1 a 3 años / 12 a 36 meses)."""
-        if not (12 <= self.age_months <= 36):
-            raise ValueError(
-                f"La edad del paciente ({self.age_months} meses) está fuera del rango válido "
-                f"para la evaluación STAT (12 a 36 meses / 1 a 3 años)."
-            )
+        """Valida la edad general."""
+        if self.age_months < 1:
+            raise ValueError("La edad debe ser al menos 1 mes.")
+
+    def validate_for_test(self, test_type: str) -> tuple[bool, str]:
+        """Validación dinámica según el test seleccionado."""
+        if test_type == "stat" and not (12 <= self.age_months <= 36):
+            return False, f"STAT: edad {self.age_months}m fuera de rango (12-36m)."
+        if test_type == "ados2" and self.age_months < 12:
+            return False, f"ADOS-2: edad {self.age_months}m menor al mínimo (12m)."
+        return True, "Edad válida."
 
     @property
     def age_years(self) -> float:

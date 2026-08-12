@@ -19,6 +19,7 @@ class STATRiskLevel(str, Enum):
 
     LOW_RISK = "Riesgo Bajo de TEA"
     HIGH_RISK = "Riesgo Alto de TEA"
+    INCOMPLETE = "Evaluación Incompleta"
 
 
 @dataclass(frozen=True)
@@ -44,7 +45,9 @@ class ItemScore:
 
     item_code: str
     score: int  # 0: Pass, 1: Fail
-    therapist_passed: bool = True
+    therapist_passed: bool
+    ai_suggested_pass: Optional[bool] = None
+    has_discrepancy: bool = False
     raw_metrics: Dict[str, float] = field(default_factory=dict)
     notes: str = ""
 
@@ -63,8 +66,10 @@ class STATDomainResult:
     items_total: int
     items_failed: int
     items_passed: int
-    domain_failed: bool
+    domain_failed: Optional[bool]
     cutoff_description: str
+    items_unevaluated: int = 0
+    is_complete: bool = True
 
 
 # Registro exhaustivo de los 12 Ítems del Test STAT

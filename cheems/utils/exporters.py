@@ -25,7 +25,8 @@ def export_stat_to_html(session_data: Dict[str, Any], output_path: Path) -> Path
     notes = session_data.get("specialist_validation_notes", "")
 
     is_high_risk = "Alto" in overall_risk
-    risk_color = "#d9534f" if is_high_risk else "#28a745"
+    is_incomplete = "Incompleta" in overall_risk
+    risk_color = "#f0ad4e" if is_incomplete else ("#d9534f" if is_high_risk else "#28a745")
 
     html_content = f"""<!DOCTYPE html>
 <html lang="es">
@@ -54,7 +55,7 @@ def export_stat_to_html(session_data: Dict[str, Any], output_path: Path) -> Path
         <table>
             <tr><td><strong>Nombre Completo:</strong> {patient.get('full_name', 'N/A')}</td><td><strong>ID Paciente:</strong> {patient.get('patient_id', 'N/A')}</td></tr>
             <tr><td><strong>Edad:</strong> {patient.get('age_months', 0)} meses ({patient.get('age_years', 0)} años)</td><td><strong>Sexo:</strong> {patient.get('sex', 'N/A')}</td></tr>
-            <tr><td><strong>Especialista Evaluador:</strong> {patient.get('evaluator', 'N/A')}</td><td><strong>Fecha:</strong> {session_data.get('started_at', '')[:10]}</td></tr>
+            <tr><td><strong>Especialista Evaluador:</strong> {patient.get('evaluator', 'N/A')}</td><td><strong>Fecha:</strong> {(session_data.get('started_at') or '')[:10]}</td></tr>
         </table>
 
         <h2>2. Clasificación Algorítmica de Riesgo</h2>
@@ -113,7 +114,7 @@ def export_stat_to_html(session_data: Dict[str, Any], output_path: Path) -> Path
 
         <h2>5. Recomendaciones Clínicas</h2>
         <ul>
-            <li>{"Se recomienda derivación urgente a evaluación neuropediátrica/multidisciplinaria completa." if is_high_risk else "Seguimiento periódico del desarrollo infantil a los 6 meses."}</li>
+            <li>{"La evaluación no pudo ser completada. Se sugiere agendar una nueva sesión." if is_incomplete else ("Se recomienda derivación urgente a evaluación neuropediátrica/multidisciplinaria completa." if is_high_risk else "Seguimiento periódico del desarrollo infantil a los 6 meses.")}</li>
             <li>Este documento es una herramienta de soporte y debe ser validado con la evaluación clínica directa del especialista.</li>
         </ul>
 
@@ -183,6 +184,7 @@ def export_stat_to_pdf(session_data: Dict[str, Any], output_path: Path) -> Path:
         item_scores = session_data.get("item_scores", {})
 
         is_high_risk = "Alto" in overall_risk
+        is_incomplete = "Incompleta" in overall_risk
 
         # 1. Encabezado
         story.append(Paragraph("Sistema CHEEMS — Informe de Evaluación STAT", title_style))
@@ -200,7 +202,7 @@ def export_stat_to_pdf(session_data: Dict[str, Any], output_path: Path) -> Path:
             ],
             [
                 Paragraph(f"<b>Especialista:</b> {patient.get('evaluator', 'N/A')}", body_style),
-                Paragraph(f"<b>Fecha:</b> {session_data.get('started_at', '')[:10]}", body_style),
+                Paragraph(f"<b>Fecha:</b> {(session_data.get('started_at') or '')[:10]}", body_style),
             ],
         ]
         t_patient = Table(p_info_data, colWidths=[270, 270])
@@ -213,7 +215,7 @@ def export_stat_to_pdf(session_data: Dict[str, Any], output_path: Path) -> Path:
         story.append(Spacer(1, 10))
 
         # 3. Banner de Riesgo
-        banner_bg = colors.HexColor("#DC3545") if is_high_risk else colors.HexColor("#28A745")
+        banner_bg = colors.HexColor("#f0ad4e") if is_incomplete else (colors.HexColor("#DC3545") if is_high_risk else colors.HexColor("#28A745"))
         risk_text = f"<font color='white'><b>DIAGNÓSTICO PRELIMINAR: {overall_risk.upper()}</b><br/>{explanation}</font>"
         risk_style = ParagraphStyle("RiskText", parent=body_style, fontSize=11, leading=15, alignment=1)
         t_risk = Table([[Paragraph(risk_text, risk_style)]], colWidths=[540])
@@ -274,13 +276,21 @@ def export_stat_to_pdf(session_data: Dict[str, Any], output_path: Path) -> Path:
 
         # 6. Recomendaciones
         story.append(Paragraph("Recomendaciones Clínicas", h2_style))
-        rec_text = "Derivación para evaluación neuropsicológica/multidisciplinaria completa." if is_high_risk else "Seguimiento estándar del desarrollo a los 6 meses."
+        rec_text = "La evaluación no pudo ser completada. Se sugiere agendar una nueva sesión." if is_incomplete else ("Derivación para evaluación neuropsicológica/multidisciplinaria completa." if is_high_risk else "Seguimiento estándar del desarrollo a los 6 meses.")
         story.append(Paragraph(f"• {rec_text}", body_style))
         story.append(Paragraph("• Informe de soporte generado por Sistema CHEEMS.", body_style))
 
         doc.build(story)
     except Exception as err:
         print(f"[!] Exportador PDF: Fallback a HTML ({err})")
-        export_stat_to_html(session_data, output_path.with_suffix(".html"))
+        return export_stat_to_html(session_data, output_path.with_suffix(".html"))
 
+    return output_path
+
+
+def export_ados2_to_json(session_data: Dict[str, Any], output_path: Path) -> Path:
+    """Guarda el informe estructurado del Test ADOS-2 en formato JSON."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as file:
+        json.dump(session_data, file, indent=2, ensure_ascii=False)
     return output_path

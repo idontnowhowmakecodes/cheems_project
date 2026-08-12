@@ -22,45 +22,15 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(SCR_PATH) not in sys.path:
     sys.path.insert(0, str(SCR_PATH))
 
-# Mapeo de compatibilidad para cheems_project <-> cheems_tracker
-try:
-    import cheems_project
-    sys.modules["cheems_tracker"] = cheems_project
-    
-    import cheems_project.domain.models as _models
-    sys.modules["cheems_project.domain"] = cheems_project.domain
-    sys.modules["cheems_project.domain.models"] = _models
-    sys.modules["cheems_tracker.domain"] = cheems_project.domain
-    sys.modules["cheems_tracker.domain.models"] = _models
-
-    import cheems_project.camera.video_source as _video
-    sys.modules["cheems_tracker.camera"] = cheems_project.camera
-    sys.modules["cheems_tracker.camera.video_source"] = _video
-
-    import cheems_project.metrics.gesture_metrics as _metrics
-    sys.modules["cheems_tracker.metrics"] = cheems_project.metrics
-    sys.modules["cheems_tracker.metrics.gesture_metrics"] = _metrics
-
-    import cheems_project.tracking.gesture_tracker as _tracking
-    sys.modules["cheems_tracker.tracking"] = cheems_project.tracking
-    sys.modules["cheems_tracker.tracking.gesture_tracker"] = _tracking
-
-    import cheems_project.ui.hotkey_controller as _ui
-    sys.modules["cheems_tracker.ui"] = cheems_project.ui
-    sys.modules["cheems_tracker.ui.hotkey_controller"] = _ui
-
-    import cheems_project.database.sqlite_repository as _db
-    sys.modules["cheems_tracker.database"] = cheems_project.database
-    sys.modules["cheems_tracker.database.sqlite_repository"] = _db
-except Exception as err:
-    print(f"[!] Alias init note: {err}")
+# Las inyecciones sys.modules (compatibilidad cheems_tracker -> cheems_project)
+# han sido eliminadas tras la unificación en Fase 3.
 
 from cheems.core.patient import Patient
-from cheems.core.report import STATReportGenerator
+from cheems.core.report import STATReportGenerator, ADOS2ReportGenerator
 from cheems.core.session import STATSession
-from cheems.tests.ados2.models import ADOS2Module
-from cheems.tests.ados2.scoring import ADOS2Scorer
-from cheems.utils.exporters import export_stat_to_json, export_stat_to_html, export_stat_to_pdf
+from cheems.core.ados2_session import ADOS2Session
+from cheems.tests.ados2.models import ADOS2Module, ADOS2SubAlgorithm
+from cheems.utils.exporters import export_stat_to_html, export_stat_to_json, export_stat_to_pdf, export_ados2_to_json
 from cheems.utils.validators import validate_patient_age
 
 
@@ -85,9 +55,9 @@ def run_stat_flow(patient: Patient, camera_source: str, mode: str, output_json: 
     model_path = Path("models/gesture_recognizer.task")
 
     try:
-        from cheems_tracker.database.sqlite_repository import SessionRepository
+        from cheems.database.sqlite_repository import SessionRepository
     except ImportError:
-        from cheems_project.database.sqlite_repository import SessionRepository
+        from cheems.database.sqlite_repository import SessionRepository
 
     repository = SessionRepository(db_path)
 
@@ -106,19 +76,20 @@ def run_stat_flow(patient: Patient, camera_source: str, mode: str, output_json: 
         import time
         import cv2
         try:
-            from cheems_tracker.camera.video_source import VideoSource
-            from cheems_tracker.ui.hotkey_controller import ControlAction, HotkeyController
+            from cheems.camera.video_source import VideoSource
+            from cheems.ui.hotkey_controller import ControlAction, HotkeyController
         except ImportError:
-            from cheems_project.camera.video_source import VideoSource
-            from cheems_project.ui.hotkey_controller import ControlAction, HotkeyController
+            from cheems.camera.video_source import VideoSource
+            from cheems.ui.hotkey_controller import ControlAction, HotkeyController
 
         controls = HotkeyController()
         print("\n Controles por Teclado en Segundo Plano:")
-        print("   - F8 o 8: Alternar Aprobado (PASS) / Fallado (FAIL) para la actividad actual")
+        print("   - F7 o 7: Marcar ítem actual como FAIL (Fallado)")
+        print("   - F8 o 8: Marcar ítem actual como PASS (Aprobado)")
         print("   - F9 o 9: Confirmar actividad y AVANZAR al siguiente ítem del STAT")
         print("   - Q o Esc: Cancelar evaluación\n")
 
-        current_item_passed = True
+        current_item_verdict = None
 
         try:
             with VideoSource(camera_source) as camera:
@@ -135,16 +106,22 @@ def run_stat_flow(patient: Patient, camera_source: str, mode: str, output_json: 
 
                     action = controls.poll()
 
-                    if action is ControlAction.MARK_ATTEMPT:
-                        current_item_passed = not current_item_passed
-                        status_str = "PASS (Aprobado)" if current_item_passed else "FAIL (Fallado)"
-                        print(f"  [+] Actividad [{item.code}] -> Estado cambiado a: {status_str}")
+                    if action is ControlAction.MARK_PASS:
+                        current_item_verdict = True
+                        print(f"  [+] Actividad [{item.code}] -> Estado marcado como: PASS (Aprobado)")
+                    elif action is ControlAction.MARK_FAIL:
+                        current_item_verdict = False
+                        print(f"  [+] Actividad [{item.code}] -> Estado marcado como: FAIL (Fallado)")
                     elif action is ControlAction.FINISH:
-                        session.record_item_result(item.code, therapist_passed=current_item_passed, notes="Registrado in-situ.")
+                        if current_item_verdict is None:
+                            print("  [!] Debe marcar PASS (F8/8) o FAIL (F7/7) antes de avanzar.")
+                            continue
+                            
+                        session.record_item_result(item.code, therapist_passed=current_item_verdict, notes="Registrado in-situ.")
                         repository.record_event(session.session_id, 0, f"item_completed_{item.code}")
-                        print(f"  [✔] Actividad [{item.code}] COMPLETADA -> {'PASS' if current_item_passed else 'FAIL'}")
+                        print(f"  [✔] Actividad [{item.code}] COMPLETADA -> {'PASS' if current_item_verdict else 'FAIL'}")
                         session.advance_item()
-                        current_item_passed = True
+                        current_item_verdict = None
                         if session.current_item:
                             print(f"\n  [➜] Siguiente Actividad: [{session.current_item.code}] - {session.current_item.name} ({session.current_item.domain.value})")
                     elif action is ControlAction.CANCEL:
@@ -216,23 +193,45 @@ def _run_guided_simulation(session: STATSession) -> None:
         session.advance_item()
 
 
-def run_ados2_flow(patient: Patient) -> None:
-    """Flujo base para ADOS-2."""
+def run_ados2_flow(patient: Patient, output_json: str) -> None:
+    """Flujo base para ADOS-2 (Simulación)."""
     print("\n[Paso 1] Test ADOS-2 Seleccionado.")
-    print(f"[Paso 2] Ejecutando cámara para evaluación ADOS-2 con paciente: {patient.full_name}")
-    print("[Paso 3] Paso por Módulos de ADOS-2 (Módulo Toddler / Módulo 1)")
+    print(f"[Paso 2] Ejecutando ADOS-2 (Modo Simulación) con paciente: {patient.full_name}")
     
-    sa_score = 6
-    rbr_score = 3
-    classification, total = ADOS2Scorer.calculate_cutoff(ADOS2Module.MODULE_1, sa_score, rbr_score)
+    # Elegir módulo y sub-algoritmo (Hardcoded para MVP)
+    module = ADOS2Module.MODULE_1
+    sub_algo = ADOS2SubAlgorithm.M1_SOME_WORDS
+    if patient.age_months < 31:
+        module = ADOS2Module.TODDLER
+        sub_algo = ADOS2SubAlgorithm.TODDLER_21_30_SOME
+        
+    print(f"[Paso 3] Módulo seleccionado: {module.value}, Sub-algoritmo: {sub_algo.value}")
+    
+    session = ADOS2Session(patient=patient, module=module, sub_algorithm=sub_algo)
+    
+    # Simulamos la evaluación de los ítems
+    import random
+    while not session.is_completed:
+        item = session.current_item
+        if not item:
+            break
+        # Generar código simulado (0, 1, 2, 3, 7, 8)
+        sim_code = random.choices([0, 1, 2, 3, 7, 8], weights=[0.4, 0.2, 0.2, 0.1, 0.05, 0.05])[0]
+        session.record_item_result(item.code, raw_code=sim_code, notes="Simulado.")
+        print(f"  Actividad [{item.code}] {item.name:<30} -> Puntuación Original: {sim_code}")
+        session.advance_item()
 
     print("\n" + "=" * 70)
-    print("[Paso 4] CÁLCULO ALGORÍTMICO ADOS-2")
-    print(f" Total Afecto Social (SA): {sa_score}")
-    print(f" Total Comportamientos Restringidos (RBR): {rbr_score}")
-    print(f" Puntuación Total ADOS-2: {total}")
-    print(f" Clasificación Algorítmica: {classification}")
+    print("[Paso 4] CÁLCULO ALGORÍTMICO Y REPORTE ADOS-2")
     print("=" * 70)
+    
+    evaluation_result = session.evaluate_session()
+    report_markdown = ADOS2ReportGenerator.generate_markdown_report(evaluation_result)
+    print(report_markdown)
+    
+    json_path = Path(output_json).with_name("ados2_evaluation_result.json")
+    export_ados2_to_json(evaluation_result, json_path)
+    print(f"\n[+] Reporte JSON exportado en: {json_path.resolve()}")
 
 
 def main() -> None:
@@ -251,18 +250,18 @@ def main() -> None:
     # Paso 1: Elección de Test
     test_choice = args.test if args.test else select_test_type()
 
+    patient = Patient(patient_id=args.patient_id, full_name=args.patient_name, age_months=args.patient_age, evaluator=args.evaluator)
+
     # Validación de paciente
-    is_valid, msg = validate_patient_age(args.patient_age)
+    is_valid, msg = patient.validate_for_test(test_choice)
     if not is_valid:
         print(f"Error de validación: {msg}")
         sys.exit(1)
 
-    patient = Patient(patient_id=args.patient_id, full_name=args.patient_name, age_months=args.patient_age, evaluator=args.evaluator)
-
     if test_choice == "stat":
         run_stat_flow(patient, args.source, args.mode, args.output_json, args.output_pdf)
     else:
-        run_ados2_flow(patient)
+        run_ados2_flow(patient, args.output_json)
 
 
 if __name__ == "__main__":
