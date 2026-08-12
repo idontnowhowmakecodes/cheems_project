@@ -22,33 +22,36 @@ if str(PROJECT_ROOT) not in sys.path:
 if str(SCR_PATH) not in sys.path:
     sys.path.insert(0, str(SCR_PATH))
 
-# Mapeo de compatibilidad para cheems_project -> cheems_tracker
+# Mapeo de compatibilidad para cheems_project <-> cheems_tracker
 try:
-    import cheems_tracker
-    import cheems_tracker.domain.models as _models
-    sys.modules["cheems_project"] = cheems_tracker
-    sys.modules["cheems_project.domain"] = cheems_tracker.domain
+    import cheems_project
+    sys.modules["cheems_tracker"] = cheems_project
+    
+    import cheems_project.domain.models as _models
+    sys.modules["cheems_project.domain"] = cheems_project.domain
     sys.modules["cheems_project.domain.models"] = _models
+    sys.modules["cheems_tracker.domain"] = cheems_project.domain
+    sys.modules["cheems_tracker.domain.models"] = _models
 
-    import cheems_tracker.camera.video_source as _video
-    sys.modules["cheems_project.camera"] = cheems_tracker.camera
-    sys.modules["cheems_project.camera.video_source"] = _video
+    import cheems_project.camera.video_source as _video
+    sys.modules["cheems_tracker.camera"] = cheems_project.camera
+    sys.modules["cheems_tracker.camera.video_source"] = _video
 
-    import cheems_tracker.metrics.gesture_metrics as _metrics
-    sys.modules["cheems_project.metrics"] = cheems_tracker.metrics
-    sys.modules["cheems_project.metrics.gesture_metrics"] = _metrics
+    import cheems_project.metrics.gesture_metrics as _metrics
+    sys.modules["cheems_tracker.metrics"] = cheems_project.metrics
+    sys.modules["cheems_tracker.metrics.gesture_metrics"] = _metrics
 
-    import cheems_tracker.tracking.gesture_tracker as _tracking
-    sys.modules["cheems_project.tracking"] = cheems_tracker.tracking
-    sys.modules["cheems_project.tracking.gesture_tracker"] = _tracking
+    import cheems_project.tracking.gesture_tracker as _tracking
+    sys.modules["cheems_tracker.tracking"] = cheems_project.tracking
+    sys.modules["cheems_tracker.tracking.gesture_tracker"] = _tracking
 
-    import cheems_tracker.ui.hotkey_controller as _ui
-    sys.modules["cheems_project.ui"] = cheems_tracker.ui
-    sys.modules["cheems_project.ui.hotkey_controller"] = _ui
+    import cheems_project.ui.hotkey_controller as _ui
+    sys.modules["cheems_tracker.ui"] = cheems_project.ui
+    sys.modules["cheems_tracker.ui.hotkey_controller"] = _ui
 
-    import cheems_tracker.database.sqlite_repository as _db
-    sys.modules["cheems_project.database"] = cheems_tracker.database
-    sys.modules["cheems_project.database.sqlite_repository"] = _db
+    import cheems_project.database.sqlite_repository as _db
+    sys.modules["cheems_tracker.database"] = cheems_project.database
+    sys.modules["cheems_tracker.database.sqlite_repository"] = _db
 except Exception as err:
     print(f"[!] Alias init note: {err}")
 
@@ -81,7 +84,11 @@ def run_stat_flow(patient: Patient, camera_source: str, mode: str, output_json: 
     db_path = Path("data/cheems_stat.db")
     model_path = Path("models/gesture_recognizer.task")
 
-    from cheems_tracker.database.sqlite_repository import SessionRepository
+    try:
+        from cheems_tracker.database.sqlite_repository import SessionRepository
+    except ImportError:
+        from cheems_project.database.sqlite_repository import SessionRepository
+
     repository = SessionRepository(db_path)
 
     session = STATSession(patient=patient, camera_source=camera_source, model_path=model_path, db_path=db_path)
@@ -98,8 +105,12 @@ def run_stat_flow(patient: Patient, camera_source: str, mode: str, output_json: 
     if mode == "live":
         import time
         import cv2
-        from cheems_tracker.camera.video_source import VideoSource
-        from cheems_tracker.ui.hotkey_controller import ControlAction, HotkeyController
+        try:
+            from cheems_tracker.camera.video_source import VideoSource
+            from cheems_tracker.ui.hotkey_controller import ControlAction, HotkeyController
+        except ImportError:
+            from cheems_project.camera.video_source import VideoSource
+            from cheems_project.ui.hotkey_controller import ControlAction, HotkeyController
 
         controls = HotkeyController()
         print("\n Controles por Teclado en Segundo Plano:")
