@@ -38,18 +38,38 @@ class STATScorer:
             1 = FAIL (Conducta no aprobada / indicador de riesgo)
         """
         metrics = metrics or {}
-        # Por defecto, el resultado respeta el criterio clínico final del terapeuta,
-        # pero se pueden ajustar banderas de concordancia con MediaPipe.
         passed = therapist_passed
 
-        # Ejemplo de refinamiento automatizado por MediaPipe si las métricas están presentes:
-        if "hand_gesture_score" in metrics and item_code in ("MI-1", "MI-2", "MI-3", "MI-4"):
-            # Si MediaPipe detecta alta precisión en el gesto imitativo (>= 0.65), apoya la aprobación
-            if metrics["hand_gesture_score"] >= 0.65:
+        # Refinamiento automatizado asistido por MediaPipe si las métricas están presentes:
+        if item_code in ("P-1", "P-2"):
+            if metrics.get("play_functional_score", 0.0) >= 0.60 or metrics.get("symbolic_interaction_score", 0.0) >= 0.55:
                 passed = True
-        elif "gaze_alignment_score" in metrics and item_code in ("DA-3", "DA-4"):
-            # Si MediaPipe detecta alineación de mirada/rostro adecuada (>= 0.60)
-            if metrics["gaze_alignment_score"] >= 0.60:
+        elif item_code == "R-1":
+            if metrics.get("gaze_alignment_score", 0.0) >= 0.60:
+                passed = True
+        elif item_code == "R-2":
+            if metrics.get("help_request_gesture_score", 0.0) >= 0.65:
+                passed = True
+        elif item_code == "DA-1":
+            if metrics.get("object_show_score", 0.0) >= 0.60:
+                passed = True
+        elif item_code == "DA-2":
+            if metrics.get("pointing_detected", 0.0) >= 0.70 or metrics.get("pointing_vector_confidence", 0.0) >= 0.70:
+                passed = True
+        elif item_code in ("DA-3", "DA-4"):
+            if metrics.get("gaze_alignment_score", 0.0) >= 0.60 or metrics.get("gaze_head_turn_angle", 0.0) >= 25.0:
+                passed = True
+        elif item_code == "MI-1":
+            if metrics.get("clapping_proximity", 0.0) >= 0.75 or metrics.get("hand_gesture_score", 0.0) >= 0.65:
+                passed = True
+        elif item_code == "MI-2":
+            if metrics.get("hand_gesture_score", 0.0) >= 0.65:
+                passed = True
+        elif item_code == "MI-3":
+            if metrics.get("hands_elevated_score", 0.0) >= 0.70:
+                passed = True
+        elif item_code == "MI-4":
+            if metrics.get("hand_gesture_score", 0.0) >= 0.65:
                 passed = True
 
         score_value = 0 if passed else 1

@@ -125,6 +125,28 @@ class TestSTATModule(unittest.TestCase):
         metrics_point = tracker.analyze_frame_data(hands_pointing)
         self.assertEqual(metrics_point["pointing_detected"], 0.95)
 
+    def test_stat_tracker_pose_anchoring_and_atypical_alerts(self):
+        """Verifica el anclaje anatómico con MediaPipe Pose y las alertas de aleteo/balanceo."""
+        tracker = STATMediaPipeTracker()
+
+        pose_data = {
+            "left_shoulder": (0.30, 0.50, 0.0),
+            "right_shoulder": (0.70, 0.50, 0.0),
+            "left_ear": (0.40, 0.20, 0.0),
+            "right_ear": (0.60, 0.20, 0.0),
+            "torso_pitch_oscillation": 0.45,
+        }
+        hands_data = [
+            {"wrist": (0.45, 0.15, 0.0), "gesture": "Open_Palm", "gesture_score": 0.90, "wrist_velocity": 0.80},
+        ]
+
+        metrics = tracker.analyze_frame_data(hands_data, pose_data=pose_data)
+
+        self.assertEqual(metrics["pose_anchored"], 1.0)
+        self.assertGreater(metrics["hands_elevated_score"], 0.80)
+        self.assertGreater(metrics["flapping_detected"], 0.70)
+        self.assertGreater(metrics["rocking_detected"], 0.40)
+
     def test_stat_full_session_flow(self):
         """Verifica el flujo completo de una sesión STAT y su exportación."""
         with TemporaryDirectory() as tmp_dir:
