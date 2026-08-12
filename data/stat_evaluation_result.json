@@ -1,0 +1,158 @@
+{
+  "session_id": "05e561bd-003e-4ba3-b9ee-47a010215a2d",
+  "patient": {
+    "patient_id": "P-2026-001",
+    "full_name": "Mateo Morales",
+    "age_months": 24,
+    "age_years": 2.0,
+    "birth_date": null,
+    "sex": "Unspecified",
+    "evaluator": "Especialista CHEEMS",
+    "notes": "",
+    "created_at": "2026-08-12"
+  },
+  "started_at": "2026-08-12T21:16:32.714937+00:00",
+  "ended_at": "2026-08-12T21:16:32.732278+00:00",
+  "is_completed": true,
+  "items_evaluated": 12,
+  "items_total": 12,
+  "item_scores": {
+    "P-1": {
+      "score": 0,
+      "result_str": "PASS",
+      "therapist_passed": true,
+      "metrics": {
+        "hand_gesture_score": 0.85
+      },
+      "notes": "Imitación funcional adecuada."
+    },
+    "P-2": {
+      "score": 1,
+      "result_str": "FAIL",
+      "therapist_passed": false,
+      "metrics": {},
+      "notes": "Falta juego representacional espontáneo."
+    },
+    "R-1": {
+      "score": 0,
+      "result_str": "PASS",
+      "therapist_passed": true,
+      "metrics": {},
+      "notes": "Realizó contacto visual para pedir burbujas."
+    },
+    "R-2": {
+      "score": 1,
+      "result_str": "FAIL",
+      "therapist_passed": false,
+      "metrics": {},
+      "notes": "No solicitó ayuda con el globo."
+    },
+    "DA-1": {
+      "score": 0,
+      "result_str": "PASS",
+      "therapist_passed": true,
+      "metrics": {},
+      "notes": "Muestra objeto llamativo al evaluador."
+    },
+    "DA-2": {
+      "score": 0,
+      "result_str": "PASS",
+      "therapist_passed": true,
+      "metrics": {
+        "pointing_detected": 0.92
+      },
+      "notes": "Señala objeto lejano con dedo índice."
+    },
+    "DA-3": {
+      "score": 1,
+      "result_str": "FAIL",
+      "therapist_passed": false,
+      "metrics": {
+        "gaze_alignment_score": 0.3
+      },
+      "notes": "No siguió la dirección de la mirada."
+    },
+    "DA-4": {
+      "score": 1,
+      "result_str": "FAIL",
+      "therapist_passed": false,
+      "metrics": {
+        "gaze_alignment_score": 0.25
+      },
+      "notes": "Escasa alternancia de mirada entre objeto y evaluador."
+    },
+    "MI-1": {
+      "score": 0,
+      "result_str": "PASS",
+      "therapist_passed": true,
+      "metrics": {
+        "clapping_proximity": 0.88
+      },
+      "notes": "Imitó aplausos adecuadamente."
+    },
+    "MI-2": {
+      "score": 0,
+      "result_str": "PASS",
+      "therapist_passed": true,
+      "metrics": {},
+      "notes": "Imitó golpes en la mesa."
+    },
+    "MI-3": {
+      "score": 0,
+      "result_str": "PASS",
+      "therapist_passed": true,
+      "metrics": {
+        "hands_elevated_score": 0.95
+      },
+      "notes": "Llevó las manos a la cabeza correctamente."
+    },
+    "MI-4": {
+      "score": 0,
+      "result_str": "PASS",
+      "therapist_passed": true,
+      "metrics": {},
+      "notes": "Imitó la acción con la campanilla."
+    }
+  },
+  "domain_results": {
+    "PLAY": {
+      "domain_name": "Juego",
+      "items_total": 2,
+      "items_failed": 1,
+      "items_passed": 1,
+      "domain_failed": false,
+      "status": "PASS (Aprobado)",
+      "cutoff_rule": "Fallo si se fallan los 2 ítems del dominio."
+    },
+    "REQUESTING": {
+      "domain_name": "Petición",
+      "items_total": 2,
+      "items_failed": 1,
+      "items_passed": 1,
+      "domain_failed": false,
+      "status": "PASS (Aprobado)",
+      "cutoff_rule": "Fallo si se fallan los 2 ítems del dominio."
+    },
+    "DIRECTING_ATTENTION": {
+      "domain_name": "Dirigir la Atención",
+      "items_total": 4,
+      "items_failed": 2,
+      "items_passed": 2,
+      "domain_failed": true,
+      "status": "FAIL (Fallado)",
+      "cutoff_rule": "Fallo si se fallan 2 o más ítems de los 4 del dominio."
+    },
+    "MOTOR_IMITATION": {
+      "domain_name": "Imitación Motora",
+      "items_total": 4,
+      "items_failed": 0,
+      "items_passed": 4,
+      "domain_failed": false,
+      "status": "PASS (Aprobado)",
+      "cutoff_rule": "Fallo si se fallan 2 o más ítems de los 4 del dominio."
+    }
+  },
+  "failed_domains_count": 1,
+  "overall_risk": "Riesgo Bajo de TEA",
+  "explanation": "El menor presenta fallo en 1 de los 4 dominios del STAT (umbral de corte: >= 2 dominios), clasificando con RIESGO BAJO de TEA."
+}
