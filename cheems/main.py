@@ -237,6 +237,7 @@ def run_ados2_flow(patient: Patient, output_json: str) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="CHEEMS - Clasificador Holístico de Evaluación")
     parser.add_argument("--test", choices=["stat", "ados2"], default=None, help="Test a ejecutar (stat o ados2)")
+    parser.add_argument("--gui", action="store_true", help="Lanzar la interfaz gráfica de escritorio (PyWebView)")
     parser.add_argument("--patient-id", default="P-2026-001", help="ID del paciente")
     parser.add_argument("--patient-name", default="Mateo Morales", help="Nombre del paciente")
     parser.add_argument("--patient-age", type=int, default=24, help="Edad en meses (12 a 36)")
@@ -246,6 +247,16 @@ def main() -> None:
     parser.add_argument("--output-json", default="data/stat_evaluation_result.json", help="Ruta salida JSON")
     parser.add_argument("--output-pdf", default="data/stat_report.pdf", help="Ruta salida PDF")
     args = parser.parse_args()
+
+    # Si se pide GUI o no se pasa ningún argumento específico de test CLI
+    if args.gui or (len(sys.argv) == 1):
+        try:
+            from cheems.ui.app_window import launch_desktop_app
+            print("[+] Iniciando Interfaz Gráfica de Escritorio CHEEMS...")
+            launch_desktop_app()
+            return
+        except Exception as err:
+            print(f"[!] Error al iniciar GUI ({err}). Usando modo CLI interactivo.")
 
     # Paso 1: Elección de Test
     test_choice = args.test if args.test else select_test_type()

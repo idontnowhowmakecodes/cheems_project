@@ -3,19 +3,24 @@ requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cheems_project-peru"
-version = "0.1.0"
-description = "Herramienta no clínica de observación motora con MediaPipe"
+name = "cheems"
+version = "1.0.0"
+description = "Sistema de Evaluación del Neurodesarrollo y Observación Motora Asistida (STAT & ADOS-2)"
 requires-python = ">=3.11"
 dependencies = [
-  "mediapipe==1.0.0",
-  "opencv-contrib-python==5.0.0.93",
-  "numpy",
-  "matplotlib",
+  "mediapipe>=0.10.0",
+  "opencv-python>=4.8.0",
+  "numpy>=1.24.0",
+  "matplotlib>=3.7.0",
+  "pywebview>=5.0.0",
+  "cryptography>=42.0.0",
+  "reportlab>=4.0.0",
+  "fpdf2>=2.7.0",
 ]
 
 [project.scripts]
-cheems_project = "cheems_project.app:main"
+cheems = "cheems.main:main"
 
 [tool.setuptools.packages.find]
-where = ["scr"]
+where = ["."]
+include = ["cheems*"]

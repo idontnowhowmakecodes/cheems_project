@@ -4,6 +4,7 @@ import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from cheems.domain.models import (
     GestureFrame,
@@ -11,22 +12,31 @@ from cheems.domain.models import (
     StoredSession,
     StoredSessionEvent,
 )
+from cheems.security.crypto import MedicalDataCryptor
 
 
 class SessionRepository:
-    """Guarda sesiones y observaciones de landmarks de forma local."""
+    """Guarda sesiones, pacientes y observaciones de landmarks de forma local y cifrada."""
 
-    def __init__(self, database_path: Path) -> None:
-        """Crea directorios necesarios e inicializa el esquema de SQLite."""
+    def __init__(self, database_path: Path, cryptor: Optional[MedicalDataCryptor] = None) -> None:
+        """Crea directorios necesarios e inicializa el esquema de SQLite con soporte de cifrado y multihilo."""
         database_path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection = sqlite3.connect(database_path)
+        self._cryptor = cryptor or MedicalDataCryptor(key_path=database_path.parent / ".security_key")
+        self._connection = sqlite3.connect(database_path, check_same_thread=False)
         self._connection.execute("PRAGMA foreign_keys = ON")
         self._create_schema()
 
     def _create_schema(self) -> None:
-        """Crea tablas mínimas para sesiones y observaciones de manos."""
+        """Crea tablas para pacientes, sesiones y observaciones con soporte criptográfico."""
         self._connection.executescript(
             """
+            CREATE TABLE IF NOT EXISTS patients (
+                patient_id TEXT PRIMARY KEY,
+                encrypted_full_name TEXT NOT NULL,
+                age_months INTEGER NOT NULL,
+                evaluator TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS sessions (
                 id TEXT PRIMARY KEY,
                 activity_name TEXT NOT NULL,
@@ -60,11 +70,60 @@ class SessionRepository:
         )
         self._connection.commit()
 
+    def save_patient(self, patient_id: str, full_name: str, age_months: int, evaluator: str) -> None:
+        """Guarda o actualiza un paciente cifrando su nombre e información identificable."""
+        enc_name = self._cryptor.encrypt_text(full_name)
+        self._connection.execute(
+            """
+            INSERT INTO patients (patient_id, encrypted_full_name, age_months, evaluator, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(patient_id) DO UPDATE SET
+                encrypted_full_name=excluded.encrypted_full_name,
+                age_months=excluded.age_months,
+                evaluator=excluded.evaluator
+            """,
+            (patient_id, enc_name, age_months, evaluator, self._now()),
+        )
+        self._connection.commit()
+
+    def get_patient(self, patient_id: str) -> Optional[dict[str, object]]:
+        """Recupera y descifra los datos de un paciente."""
+        row = self._connection.execute(
+            "SELECT patient_id, encrypted_full_name, age_months, evaluator, created_at FROM patients WHERE patient_id = ?",
+            (patient_id,),
+        ).fetchone()
+        if not row:
+            return None
+        return {
+            "patient_id": row[0],
+            "full_name": self._cryptor.decrypt_text(row[1]),
+            "age_months": row[2],
+            "evaluator": row[3],
+            "created_at": row[4],
+        }
+
+    def list_patients(self) -> list[dict[str, object]]:
+        """Lista todos los pacientes descifrando su nombre."""
+        cursor = self._connection.execute(
+            "SELECT patient_id, encrypted_full_name, age_months, evaluator, created_at FROM patients ORDER BY created_at DESC"
+        )
+        return [
+            {
+                "patient_id": row[0],
+                "full_name": self._cryptor.decrypt_text(row[1]),
+                "age_months": row[2],
+                "evaluator": row[3],
+                "created_at": row[4],
+            }
+            for row in cursor.fetchall()
+        ]
+
     def start_session(self, session_id: str, instruction: str, source: str) -> None:
-        """Registra el inicio de una sesión de actividad."""
+        """Registra el inicio de una sesión cifrando la instrucción/datos clínicos."""
+        enc_instruction = self._cryptor.encrypt_text(instruction)
         self._connection.execute(
             "INSERT INTO sessions VALUES (?, ?, ?, ?, ?, NULL, NULL)",
-            (session_id, "gesture_imitation", instruction, source, self._now()),
+            (session_id, "evaluation_session", enc_instruction, source, self._now()),
         )
         self._connection.commit()
 
@@ -104,10 +163,12 @@ class SessionRepository:
         )
 
     def finish_session(self, session_id: str, summary: dict[str, object]) -> None:
-        """Guarda el resumen final y confirma las observaciones pendientes."""
+        """Guarda el resumen final cifrado y confirma las observaciones pendientes."""
+        raw_json = json.dumps(summary, ensure_ascii=False)
+        enc_json = self._cryptor.encrypt_text(raw_json)
         self._connection.execute(
             "UPDATE sessions SET ended_at = ?, summary_json = ? WHERE id = ?",
-            (self._now(), json.dumps(summary, ensure_ascii=False), session_id),
+            (self._now(), enc_json, session_id),
         )
         self._connection.commit()
 
@@ -129,7 +190,7 @@ class SessionRepository:
         self,
         session_id: str,
     ) -> tuple[StoredSession, list[StoredHandObservation], list[StoredSessionEvent]]:
-        """Carga una sesión y sus datos relacionados para visualización."""
+        """Carga una sesión y sus datos relacionados descifrando su contenido sensible."""
         session_row = self._connection.execute(
             """
             SELECT id, instruction, started_at, ended_at, summary_json
@@ -140,12 +201,16 @@ class SessionRepository:
         if session_row is None:
             raise LookupError(f"No existe la sesión: {session_id}")
 
+        dec_instruction = self._cryptor.decrypt_text(str(session_row[1]))
+        dec_summary_str = self._cryptor.decrypt_text(session_row[4]) if session_row[4] else None
+        parsed_summary = json.loads(dec_summary_str) if dec_summary_str else {}
+
         session = StoredSession(
             session_id=str(session_row[0]),
-            instruction=str(session_row[1]),
+            instruction=dec_instruction or "",
             started_at=str(session_row[2]),
             ended_at=str(session_row[3]) if session_row[3] else None,
-            summary=json.loads(session_row[4]) if session_row[4] else {},
+            summary=parsed_summary,
         )
         observations = [
             StoredHandObservation(

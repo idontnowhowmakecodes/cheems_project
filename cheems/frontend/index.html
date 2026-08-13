@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CHEEMS — Sistema de Evaluación del Neurodesarrollo</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- Encabezado Limpio y Profesional -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo-box">CH</div>
+      <div class="brand-text">
+        <h1>CHEEMS <span>Evaluación Clínica</span></h1>
+        <p class="subtitle">Observación Motora y Protocolos STAT & ADOS-2</p>
+      </div>
+    </div>
+    
+    <div class="header-badges">
+      <span class="pill-badge pill-cam" id="cameraStatus">Cámara: No conectada</span>
+      <span class="pill-badge pill-status" id="statusBadge">Modo Espera</span>
+    </div>
+  </header>
+
+  <!-- Barra de Navegación: Pasos Clínicos (1, 2, 3) y Pestañas Directas (Historial, Configuración) -->
+  <nav class="nav-bar">
+    <div class="steps-group">
+      <button class="nav-btn step-btn active" data-tab="tab-patient" id="btnTabPatient">
+        <span class="step-num">1</span>
+        <span class="btn-label">Paciente y Test</span>
+      </button>
+      <div class="step-line"></div>
+      <button class="nav-btn step-btn disabled" data-tab="tab-live" id="btnTabLive">
+        <span class="step-num">2</span>
+        <span class="btn-label">Sesión de Evaluación</span>
+      </button>
+      <div class="step-line"></div>
+      <button class="nav-btn step-btn disabled" data-tab="tab-results" id="btnTabResults">
+        <span class="step-num">3</span>
+        <span class="btn-label">Resultados e Informes</span>
+      </button>
+    </div>
+
+    <div class="direct-tabs-group">
+      <button class="nav-btn direct-btn" data-tab="tab-history" id="btnTabHistory">
+        <span class="btn-label">Historial</span>
+      </button>
+      <button class="nav-btn direct-btn" data-tab="tab-settings" id="btnTabSettings">
+        <span class="btn-label">Configuración</span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="main-wrapper">
+
+    <!-- ================= PASO 1: DATOS DEL PACIENTE & TEST ================= -->
+    <section class="tab-content active" id="tab-patient">
+      <div class="simple-grid">
+        
+        <!-- Tarjeta de Datos del Paciente -->
+        <div class="clean-card">
+          <div class="card-title-bar">
+            <h3>Datos del Paciente</h3>
+          </div>
+          <div class="card-body">
+            <form id="patientForm" onsubmit="event.preventDefault(); startNewSession();">
+              <div class="input-box">
+                <label for="patientName">Nombre Completo del Paciente:</label>
+                <input type="text" id="patientName" class="clean-input" placeholder="Ej: Mateo Morales" value="Mateo Morales" required>
+              </div>
+
+              <div class="input-row">
+                <div class="input-box half">
+                  <label for="patientAge">Edad (Meses):</label>
+                  <input type="number" id="patientAge" class="clean-input" min="12" max="180" value="24" required>
+                  <span class="help-text">STAT: 24-36 m | ADOS-2: Según módulo</span>
+                </div>
+                <div class="input-box half">
+                  <label for="patientId">Identificador / Ficha:</label>
+                  <input type="text" id="patientId" class="clean-input" value="P-2026-001" placeholder="Ej: P-001" required>
+                </div>
+              </div>
+
+              <div class="input-box">
+                <label for="evaluatorName">Especialista Evaluador:</label>
+                <input type="text" id="evaluatorName" class="clean-input" value="Dra. Valdivia" required>
+              </div>
+
+              <!-- Selector Inteligente de Cámara (Auto-conectado) -->
+              <div class="input-box">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                  <label for="cameraSelect" style="margin-bottom:0;">Cámara / Dispositivo de Video:</label>
+                  <button type="button" class="btn-link" onclick="refreshAvailableCameras()">Actualizar cámaras</button>
+                </div>
+                <select id="cameraSelect" class="clean-select">
+                  <option value="0">Detectando cámaras...</option>
+                </select>
+                <span class="help-text text-cyan" id="cameraAutoBadge">Buscando cámaras disponibles en la red...</span>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <!-- Tarjeta de Selección de Protocolo -->
+        <div class="clean-card">
+          <div class="card-title-bar">
+            <h3>Selección de Protocolo Clínico</h3>
+          </div>
+          <div class="card-body">
+            <div class="test-cards">
+              <!-- Opción STAT -->
+              <div class="test-card-option selected" id="optStat" onclick="selectProtocol('stat')">
+                <div class="check-box"></div>
+                <div class="test-content">
+                  <h4>Test STAT (24 a 36 meses)</h4>
+                  <p>12 actividades: Juego, Petición, Atención Conjunta e Imitación Motora.</p>
+                </div>
+              </div>
+
+              <!-- Opción ADOS-2 -->
+              <div class="test-card-option" id="optAdos2" onclick="selectProtocol('ados2')">
+                <div class="check-box"></div>
+                <div class="test-content">
+                  <h4>Test ADOS-2 (Módulos Diagnósticos)</h4>
+                  <p>Escala estructurada con puntuaciones de Afecto Social (SA), RRB y CSS (1-10).</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Opciones específicas de ADOS-2 -->
+            <div id="ados2Options" class="ados2-box" style="display:none;">
+              <div class="input-box">
+                <label for="adosModule">Módulo ADOS-2:</label>
+                <select id="adosModule" class="clean-select" onchange="updateSubAlgorithms()">
+                  <option value="Toddler">Módulo Toddler (12 a 30 meses)</option>
+                  <option value="Módulo 1" selected>Módulo 1 (Pocas o ninguna palabra)</option>
+                  <option value="Módulo 2">Módulo 2 (Usa frases con sentido)</option>
+                  <option value="Módulo 3">Módulo 3 (Fluidez verbal infantil)</option>
+                  <option value="Módulo 4">Módulo 4 (Adultos)</option>
+                </select>
+              </div>
+
+              <div class="input-box">
+                <label for="adosSubAlgo">Sub-algoritmo por Nivel de Lenguaje:</label>
+                <select id="adosSubAlgo" class="clean-select">
+                  <option value="m1_few_no_words">Pocas o Ninguna Palabra</option>
+                  <option value="m1_some_words" selected>Algunas Palabras</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Botón de Inicio -->
+            <div class="start-btn-container">
+              <button class="primary-btn" id="btnStartSession" onclick="startNewSession()">
+                Iniciar Sesión de Evaluación
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= PASO 2: SESIÓN EN VIVO ================= -->
+    <section class="tab-content" id="tab-live">
+      <div class="live-layout">
+        
+        <!-- Cuadro de Video -->
+        <div class="clean-card camera-card">
+          <div class="camera-top-bar">
+            <span class="live-pill" id="liveCameraState">
+              <span class="status-indicator" id="statusDot"></span>
+              <span id="liveStateText">Conectando a la cámara...</span>
+            </span>
+            <span class="activity-pill" id="activeItemBadge">[P-1] Juego con Objetos</span>
+            <span class="timer-pill" id="sessionTimer">00:00</span>
+          </div>
+
+          <div class="camera-screen">
+            <canvas id="videoCanvas" width="640" height="480"></canvas>
+            <div class="camera-placeholder-msg" id="videoOverlay">
+              <p id="overlayMainText">Esperando señal de video...</p>
+              <small id="overlaySubText">Verifique la IP configurada o conecte la cámara</small>
+            </div>
+          </div>
+
+            <!-- Controles de Grabación -->
+            <div id="recordingControls" style="display:flex; gap:8px; margin-top:10px; align-items:center;">
+              <span id="recStatusLabel" style="font-size:11px; color:var(--color-text-dim);">⏺ Grabando</span>
+              <button class="rec-ctrl-btn" id="btnPauseRec" onclick="pauseRecording()" title="Pausar grabación">⏸</button>
+              <button class="rec-ctrl-btn" id="btnResumeRec" onclick="resumeRecording()" title="Reanudar grabación" style="display:none;">⏺</button>
+              <button class="rec-ctrl-btn" id="btnCutRec" onclick="cutRecording()" title="Cortar segmento">✂</button>
+            </div>
+
+            <!-- Botones de Acción para el Especialista -->
+          <div class="actions-grid" style="grid-template-columns: 2fr 1fr;">
+            <button class="action-btn btn-next" id="btnNext" onclick="requestItemReview()" style="height: 60px;">
+              <span class="btn-title" id="btnNextTitle">Finalizar Actividad (1/12)</span>
+              <span class="btn-key">F9 o Enter</span>
+            </button>
+
+            <button class="action-btn btn-cancel" id="btnCancel" onclick="cancelSession()">
+              <span class="btn-title">Cancelar Sesión</span>
+              <span class="btn-key">Esc</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Instrucciones y Métricas -->
+        <div class="clean-card activity-guide-card">
+          <div class="card-title-bar">
+            <h3>Guía de la Actividad</h3>
+          </div>
+          <div class="card-body">
+            <div class="guide-box">
+              <span class="domain-tag" id="itemDomain">Juego</span>
+              <h4 class="guide-title" id="itemName">P-1: Juego con Objetos</h4>
+              <p class="guide-instruction" id="itemDesc">
+                Observar interacción espontánea y respuesta al modelo lúdico presentado por el evaluador.
+              </p>
+            </div>
+
+            <!-- Métricas Asistidas MediaPipe -->
+            <div class="ai-observations">
+              <h4>Métricas de Seguimiento MediaPipe:</h4>
+              <div class="obs-item">
+                <span>Contacto Visual Estimado:</span>
+                <span class="obs-val" id="mGaze">--</span>
+              </div>
+              <div class="obs-bar"><div class="obs-fill" id="mGazeBar" style="width:0%;"></div></div>
+
+              <div class="obs-item">
+                <span>Gesto de Señalamiento:</span>
+                <span class="obs-val text-cyan" id="mPointing">Buscando...</span>
+              </div>
+              <div class="obs-item">
+                <span>Movimientos Atípicos:</span>
+                <span class="obs-val" id="mAtypical">Ninguno</span>
+              </div>
+            </div>
+
+            <!-- Sugerencia Autónoma de IA (ESTIMADA) -->
+            <div class="ai-suggestion-box" id="aiSuggestionBox" style="margin-top:16px; padding:12px; background:var(--color-surface-hover); border-left:4px solid var(--color-cyan); border-radius:4px;">
+              <h4 style="margin-bottom:8px; font-size:13px; color:var(--color-text-dim);">Sugerencia Estimada IA:</h4>
+              <div style="display:flex; align-items:center; gap:12px; margin-bottom:8px;">
+                <span class="pill-badge" id="aiVerdictTag" style="font-size:14px; opacity:0.75;">Capturando datos...</span>
+                <span id="aiConfidenceText" style="font-size:12px; color:var(--color-text-dim);"></span>
+              </div>
+              <p class="ai-reasoning" id="aiReasoningText" style="font-size:13px; font-weight:400; opacity:0.8;">Esperando al menos 30 frames...</p>
+            </div>
+
+            <div class="notes-box" style="margin-top:16px;">
+              <label for="itemNotes">Anotaciones del Especialista (Opcional):</label>
+              <textarea id="itemNotes" class="clean-textarea" rows="2" placeholder="Observaciones in-situ para el informe..."></textarea>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ======= MODAL: Revisión Final del Ítem ======= -->
+    <div id="modalItemReview" class="modal-overlay" style="display:none;">
+      <div class="modal-box" style="max-width:640px;">
+        <h3 class="modal-title" id="reviewModalTitle">Revisión de Actividad</h3>
+        <div id="reviewAiVerdict" style="margin:16px 0; padding:14px; border-radius:6px; background:var(--color-surface-hover);">
+          <div style="display:flex; align-items:center; gap:14px; margin-bottom:10px;">
+            <span class="pill-badge" id="reviewVerdictTag" style="font-size:16px;">Calculando...</span>
+            <span id="reviewConfidence" style="font-size:13px; color:var(--color-text-dim);"></span>
+          </div>
+          <p id="reviewReasoning" style="font-size:14px; margin-bottom:12px;"></p>
+          <div id="reviewMetrics" style="font-size:12px; color:var(--color-text-dim); display:grid; grid-template-columns:1fr 1fr; gap:6px;"></div>
+        </div>
+        <div style="display:flex; gap:14px; margin:18px 0;">
+          <button class="action-btn btn-fail" id="reviewBtnFail" onclick="confirmReview(false)" style="flex:1;">FAIL / No Logrado</button>
+          <button class="action-btn btn-pass" id="reviewBtnPass" onclick="confirmReview(true)" style="flex:1;">PASS / Logrado</button>
+        </div>
+        <div class="notes-box">
+          <label for="reviewNotes">Anotación del Especialista:</label>
+          <textarea id="reviewNotes" class="clean-textarea" rows="3" placeholder="Observaciones finales, justificación del veredicto o discrepancias con la IA..."></textarea>
+        </div>
+        <div style="display:flex; justify-content:space-between; margin-top:14px;">
+          <button class="action-btn btn-cancel" onclick="cancelReview()" style="max-width:180px; height:45px; font-size:13px;">Retomar Grabación</button>
+          <button class="btn-primary-action" id="reviewBtnConfirm" onclick="submitReview()" disabled>Guardar y Avanzar →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ======= MODAL: Reproductor Pre-Informe ======= -->
+    <div id="modalReplay" class="modal-overlay" style="display:none;">
+      <div class="modal-box" style="max-width:900px;">
+        <h3 class="modal-title">Revisión de Sesión Completa</h3>
+        <p style="font-size:13px; color:var(--color-text-dim); margin-bottom:16px;">Revise la grabación antes de generar el informe final. Puede ajustar anotaciones en la tabla inferior.</p>
+        <video id="sessionReplayVideo" controls style="width:100%; border-radius:6px; background:#000; max-height:360px;">
+          <source id="replaySource" src="" type="video/mp4">
+          Su navegador no soporta el reproductor de video.
+        </video>
+        <div style="margin-top:20px; display:flex; gap:12px; justify-content:flex-end;">
+          <button class="action-btn btn-cancel" onclick="document.getElementById('modalReplay').style.display='none';">Cerrar</button>
+          <button class="btn-primary-action" onclick="generateReport('pdf')">Confirmar y Generar Informe PDF</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= PASO 3: RESULTADOS E INFORMES ================= -->
+    <section class="tab-content" id="tab-results">
+      <div class="results-layout">
+        
+        <!-- Tarjeta de Resultado Global -->
+        <div class="clean-card result-header-card" id="riskBanner">
+          <div class="result-text-area">
+            <span class="result-tag" id="riskBadge">EVALUACIÓN FINALIZADA</span>
+            <h2 id="riskTitle">Resultado: Riesgo Bajo de TEA</h2>
+            <p id="riskExplanation">El paciente superó los puntos de corte en los dominios evaluados.</p>
+          </div>
+          
+          <div class="css-box" id="cssScoreBox" style="display:none;">
+            <div class="css-num" id="cssNumber">2</div>
+            <div class="css-text">Severidad Calibrada (CSS 1-10)</div>
+          </div>
+        </div>
+
+        <div class="simple-grid">
+          <!-- Desglose por Dominios -->
+          <div class="clean-card">
+            <div class="card-title-bar">
+              <h3>Desglose por Dominios Clínicos (Reporte Validado)</h3>
+            </div>
+            <div class="card-body" id="domainsBreakdown">
+              <!-- Renderizado dinámico -->
+            </div>
+          </div>
+
+          <!-- Opciones de Descarga y Exportación -->
+          <div class="clean-card">
+            <div class="card-title-bar">
+              <h3>Exportación de Informes</h3>
+            </div>
+            <div class="card-body">
+              <p class="export-intro">Seleccione el formato para guardar o imprimir el informe clínico:</p>
+              
+              <div class="anon-check">
+                <input type="checkbox" id="chkAnonymize" checked>
+                <label for="chkAnonymize">Anonimizar datos personales en el informe (Investigación / PII)</label>
+              </div>
+
+              <div class="download-buttons">
+                <button class="btn-export btn-export-pdf" onclick="exportReport('pdf')">
+                  Descargar Informe en PDF Oficial
+                </button>
+                <button class="btn-export btn-export-html" onclick="exportReport('html')">
+                  Abrir Informe HTML para Impresión
+                </button>
+                <button class="btn-export btn-export-json" onclick="exportReport('json')">
+                  Exportar Resumen Estructurado (JSON)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tabla de Actividades y Concordancia (Doble Reporte) -->
+        <div class="clean-card">
+          <div class="card-title-bar">
+            <h3>Doble Reporte: Concordancia Clínica vs IA</h3>
+          </div>
+          <div class="card-body">
+            <table class="clean-table" id="itemsTable">
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Actividad</th>
+                  <th>Dominio</th>
+                  <th>Validado (Clínico)</th>
+                  <th>IA (Algorítmico)</th>
+                  <th>Notas Clínicas</th>
+                </tr>
+              </thead>
+              <tbody id="itemsTableBody">
+                <!-- Renderizado dinámico -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ================= PESTAÑA: HISTORIAL ================= -->
+    <section class="tab-content" id="tab-history">
+      <div class="clean-card">
+        <div class="card-title-bar">
+          <h3>Historial de Sesiones Registradas</h3>
+        </div>
+        <div class="card-body">
+          <table class="clean-table" id="historyTable">
+            <thead>
+              <tr>
+                <th>ID Sesión</th>
+                <th>Fecha UTC</th>
+                <th>Tipo de Test</th>
+                <th>Origen</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody">
+              <tr><td colspan="5" style="text-align:center;">Cargando sesiones registradas...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= PESTAÑA: CONFIGURACIÓN ================= -->
+    <section class="tab-content" id="tab-settings">
+      
+      <!-- Gestión de Cámaras IP / Red -->
+      <div class="clean-card">
+        <div class="card-title-bar" style="display:flex; justify-content:space-between; align-items:center;">
+          <h3>Cámaras y Flujos de Red Configurados</h3>
+          <button type="button" class="btn-secondary" onclick="scanAllCamerasUI()">
+            Escanear Cámaras en Red
+          </button>
+        </div>
+        <div class="card-body">
+          <p class="help-text" style="margin-bottom:14px;">
+            El sistema probará automáticamente estas cámaras y se conectará con la primera que responda.
+          </p>
+
+          <table class="clean-table" id="camerasListTable" style="margin-bottom:16px;">
+            <thead>
+              <tr>
+                <th>Nombre del Dispositivo</th>
+                <th>IP / URL de Video</th>
+                <th>Estado de Conexión</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody id="camerasListBody">
+              <!-- Llenado dinámico -->
+            </tbody>
+          </table>
+
+          <!-- Formulario Agregar Nueva Cámara -->
+          <div class="add-cam-box">
+            <h4 style="font-size:14px; margin-bottom:10px;">Agregar Nueva Cámara o IP:</h4>
+            <div class="input-row">
+              <input type="text" id="newCamName" class="clean-input" placeholder="Nombre ej: DroidCam Sala 1" style="flex:1;">
+              <input type="text" id="newCamUrl" class="clean-input" placeholder="URL ej: http://192.168.1.122:4747/video" style="flex:2;">
+              <button type="button" class="primary-btn" onclick="addNewCameraUI()" style="flex:1; width:auto;">
+                Agregar Cámara
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Carpetas de Almacenamiento -->
+      <div class="clean-card">
+        <div class="card-title-bar">
+          <h3>Carpetas de Almacenamiento</h3>
+        </div>
+        <div class="card-body">
+          <form id="settingsForm" onsubmit="event.preventDefault(); saveSystemSettings();">
+            
+            <div class="input-box">
+              <label for="cfgRecordingsDir">Carpeta para Grabaciones de Video:</label>
+              <div class="input-row">
+                <input type="text" id="cfgRecordingsDir" class="clean-input" value="data/recordings" style="flex:3;">
+                <button type="button" class="btn-secondary" onclick="browseFolder('cfgRecordingsDir')" style="flex:1;">
+                  Examinar...
+                </button>
+              </div>
+            </div>
+
+            <div class="input-box">
+              <label for="cfgProvisionalDir">Carpeta para Informes Preliminares / Propuestos:</label>
+              <div class="input-row">
+                <input type="text" id="cfgProvisionalDir" class="clean-input" value="data/reports/provisional" style="flex:3;">
+                <button type="button" class="btn-secondary" onclick="browseFolder('cfgProvisionalDir')" style="flex:1;">
+                  Examinar...
+                </button>
+              </div>
+            </div>
+
+            <div class="input-box">
+              <label for="cfgFinalDir">Carpeta para Informes Finales Validados:</label>
+              <div class="input-row">
+                <input type="text" id="cfgFinalDir" class="clean-input" value="data/reports/final" style="flex:3;">
+                <button type="button" class="btn-secondary" onclick="browseFolder('cfgFinalDir')" style="flex:1;">
+                  Examinar...
+                </button>
+              </div>
+            </div>
+
+            <div class="settings-actions">
+              <button type="submit" class="primary-btn" style="max-width:240px;">
+                Guardar Rutas
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="app-footer">
+    <p>CHEEMS — Sistema Clínico de Evaluación del Neurodesarrollo</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

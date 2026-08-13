@@ -1,15 +1,31 @@
-"""Exportador de resultados de la evaluación STAT a JSON, HTML y PDF."""
-
 import json
+from copy import deepcopy
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+from cheems.security.crypto import MedicalDataCryptor
 
 
-def export_stat_to_json(session_data: Dict[str, Any], output_path: Path) -> Path:
+def anonymize_session_data(session_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Crea una copia anonimizada de los datos de la sesión (PII ofuscado)."""
+    data = deepcopy(session_data)
+    patient = data.get("patient", {})
+    if patient:
+        raw_id = str(patient.get("patient_id", "UNKNOWN"))
+        anon_id = MedicalDataCryptor.pseudonymize_id(raw_id)
+        patient["full_name"] = f"Paciente Protegido ({anon_id})"
+        patient["patient_id"] = anon_id
+        patient["notes"] = "[INFORMACIÓN PRIVADA OFUSCADA POR PROTOCOLO]"
+        data["patient"] = patient
+    return data
+
+
+def export_stat_to_json(session_data: Dict[str, Any], output_path: Path, anonymize: bool = False) -> Path:
     """Guarda el informe estructurado del Test STAT en formato JSON."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = anonymize_session_data(session_data) if anonymize else session_data
     with open(output_path, "w", encoding="utf-8") as file:
-        json.dump(session_data, file, indent=2, ensure_ascii=False)
+        json.dump(payload, file, indent=2, ensure_ascii=False)
     return output_path
 
 
@@ -85,22 +101,35 @@ def export_stat_to_html(session_data: Dict[str, Any], output_path: Path) -> Path
             </tbody>
         </table>
 
-        <h2>4. Desglose Detallado de Ítems (12 Ítems)</h2>
+        <h2>4. Desglose Detallado de Ítems (Concordancia Clínica vs IA)</h2>
         <table>
             <thead>
-                <tr><th>Código</th><th>Resultado</th><th>Criterio Terapeuta</th><th>Notas de Evaluación</th></tr>
+                <tr><th>Código</th><th>Resultado Clínico</th><th>Sugerencia IA</th><th>Notas de Evaluación</th></tr>
             </thead>
             <tbody>
 """
     for code, item in item_scores.items():
         res_str = item.get("result_str", "N/A")
         status_class = "badge-pass" if res_str == "PASS" else "badge-fail"
-        obs = item.get("notes", "Evaluación completada.")
+        
+        raw_notes = item.get("notes", "")
+        ai_verdict = "N/A"
+        if "[IA Sugirió: PASS]" in raw_notes:
+            ai_verdict = "PASS"
+            raw_notes = raw_notes.replace("[IA Sugirió: PASS]", "").strip()
+        elif "[IA Sugirió: FAIL]" in raw_notes:
+            ai_verdict = "FAIL"
+            raw_notes = raw_notes.replace("[IA Sugirió: FAIL]", "").strip()
+
+        obs = raw_notes if raw_notes else "Evaluación completada."
+        
+        ai_class = "badge-pass" if ai_verdict == "PASS" else ("badge-fail" if ai_verdict == "FAIL" else "")
+
         html_content += f"""
                 <tr>
                     <td><strong>{code}</strong></td>
                     <td class="{status_class}">{res_str}</td>
-                    <td>{"PASS" if item.get("therapist_passed") else "FAIL"}</td>
+                    <td class="{ai_class}">{ai_verdict}</td>
                     <td>{obs}</td>
                 </tr>
 """
@@ -251,18 +280,30 @@ def export_stat_to_pdf(session_data: Dict[str, Any], output_path: Path) -> Path:
         story.append(Spacer(1, 10))
 
         # 5. Desglose 12 Ítems
-        story.append(Paragraph("Desglose Detallado de Ítems (12 Ítems)", h2_style))
-        item_headers = ["Código", "Resultado", "Terapeuta", "Notas"]
+        story.append(Paragraph("Desglose Detallado de Ítems (Concordancia Clínica vs IA)", h2_style))
+        item_headers = ["Código", "Resultado Clínico", "Sugerencia IA", "Notas de Evaluación"]
         item_table_data = [[Paragraph(f"<b>{h}</b>", body_style) for h in item_headers]]
 
         for code, item in item_scores.items():
             res_str = item.get("result_str", "N/A")
             res_txt = f"<font color='green'><b>{res_str}</b></font>" if res_str == "PASS" else f"<font color='red'><b>{res_str}</b></font>"
+            
+            raw_notes = item.get("notes", "")
+            ai_verdict = "N/A"
+            if "[IA Sugirió: PASS]" in raw_notes:
+                ai_verdict = "<font color='green'><b>PASS</b></font>"
+                raw_notes = raw_notes.replace("[IA Sugirió: PASS]", "").strip()
+            elif "[IA Sugirió: FAIL]" in raw_notes:
+                ai_verdict = "<font color='red'><b>FAIL</b></font>"
+                raw_notes = raw_notes.replace("[IA Sugirió: FAIL]", "").strip()
+                
+            obs = raw_notes if raw_notes else "Completado."
+
             item_table_data.append([
                 Paragraph(f"<b>{code}</b>", body_style),
                 Paragraph(res_txt, body_style),
-                Paragraph("PASS" if item.get("therapist_passed") else "FAIL", body_style),
-                Paragraph(item.get("notes", "Completado."), body_style),
+                Paragraph(ai_verdict, body_style),
+                Paragraph(obs, body_style),
             ])
 
         t_items = Table(item_table_data, colWidths=[70, 80, 80, 310])
@@ -288,9 +329,10 @@ def export_stat_to_pdf(session_data: Dict[str, Any], output_path: Path) -> Path:
     return output_path
 
 
-def export_ados2_to_json(session_data: Dict[str, Any], output_path: Path) -> Path:
+def export_ados2_to_json(session_data: Dict[str, Any], output_path: Path, anonymize: bool = False) -> Path:
     """Guarda el informe estructurado del Test ADOS-2 en formato JSON."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = anonymize_session_data(session_data) if anonymize else session_data
     with open(output_path, "w", encoding="utf-8") as file:
-        json.dump(session_data, file, indent=2, ensure_ascii=False)
+        json.dump(payload, file, indent=2, ensure_ascii=False)
     return output_path

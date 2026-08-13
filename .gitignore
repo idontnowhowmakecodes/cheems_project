@@ -7,3 +7,11 @@ data/*.pdf
 reports/
 *.task
 .DS_Store
+
+# Build artifacts
+build/
+dist/
+*.exe
+*.pkg
+*.pyz
+*.dll
